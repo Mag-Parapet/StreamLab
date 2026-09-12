@@ -1,0 +1,27 @@
+# Pinned to MediaMTX 1.21.0: native RTMP(S) forwarding, no transcoding.
+logLevel: warn
+# Provider errors may contain credential-bearing URLs. Dashboard events are
+# generated from API state changes, so raw engine output is disabled.
+logDestinations: []
+api: true
+apiAddress: :9997
+apiAllowOrigins: []
+authMethod: internal
+authInternalUsers: [] # supplied securely through the Compose environment
+rtmp: true
+rtmpAddress: :1935
+rtsp: true
+rtspAddress: :8554
+rtspTransports: [tcp]
+hls: false
+webrtc: false
+srt: false
+moq: false
+playback: false
+metrics: false
+paths:
+  live:
+    source: publisher
+    overridePublisher: false
+    record: false
+    forward: []

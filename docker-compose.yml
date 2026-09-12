@@ -1,0 +1,122 @@
+name: signal-control
+services:
+  frontend:
+    build: ./frontend
+    ports:
+      - "${DASHBOARD_BIND:-127.0.0.1}:${DASHBOARD_PORT:-8088}:8080"
+    depends_on:
+      backend:
+        condition: service_healthy
+    restart: unless-stopped
+    read_only: true
+    tmpfs:
+      - /tmp:size=32m
+    security_opt:
+      - no-new-privileges:true
+    cap_drop: [ALL]
+    mem_limit: 128m
+    networks: [control]
+  backend:
+    build: ./backend
+    environment:
+      DATABASE_URL: "postgres://signal:${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD}@postgres:5432/signal"
+      ENCRYPTION_KEY: "${ENCRYPTION_KEY:?Set ENCRYPTION_KEY}"
+      ADMIN_USER: "${ADMIN_USER:-admin}"
+      ADMIN_PASSWORD: "${ADMIN_PASSWORD:?Set ADMIN_PASSWORD}"
+      PUBLIC_ORIGIN: "${PUBLIC_ORIGIN:-http://localhost:8088}"
+      COOKIE_SECURE: "${COOKIE_SECURE:-true}"
+      MEDIAMTX_API_URL: "${MEDIAMTX_API_URL:-http://mediamtx:9997}"
+      MEDIAMTX_API_USER: control
+      MEDIAMTX_API_PASSWORD: "${MEDIAMTX_API_PASSWORD:?Set MEDIAMTX_API_PASSWORD}"
+      MEDIAMTX_RTSP_URL: "${MEDIAMTX_RTSP_URL:-rtsp://mediamtx:8554/live}"
+      FILE_BROWSER_URL: "${FILE_BROWSER_URL:-http://192.168.1.7:8080}"
+      YOUTUBE_STREAM_KEY: "${YOUTUBE_STREAM_KEY:-}"
+      YOUTUBE_RTMP_URL: "${YOUTUBE_RTMP_URL:-rtmps://a.rtmp.youtube.com/live2}"
+      FACEBOOK_STREAM_KEY: "${FACEBOOK_STREAM_KEY:-}"
+      FACEBOOK_RTMP_URL: "${FACEBOOK_RTMP_URL:-rtmps://live-api-s.facebook.com:443/rtmp}"
+      HOST_PROC: /host/proc
+      HOST_SYS: /host/sys
+      HOST_ROOT: /host/root
+      HOST_DATA: /host/data
+    volumes:
+      - type: bind
+        source: /proc
+        target: /host/proc
+        read_only: true
+      - type: bind
+        source: /sys
+        target: /host/sys
+        read_only: true
+      - type: bind
+        source: /
+        target: /host/root
+        read_only: true
+      - type: bind
+        source: ${DATA_PATH:-/data}
+        target: /host/data
+        read_only: true
+        bind:
+          create_host_path: false
+    depends_on:
+      postgres:
+        condition: service_healthy
+      mediamtx:
+        condition: service_started
+    healthcheck:
+      test: [CMD, curl, --fail, --silent, http://127.0.0.1:3000/api/health]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+    restart: unless-stopped
+    read_only: true
+    tmpfs:
+      - /tmp:size=16m
+    security_opt:
+      - no-new-privileges:true
+    cap_drop: [ALL]
+    mem_limit: 384m
+    networks: [control]
+  postgres:
+    image: postgres:17.6-alpine
+    environment:
+      POSTGRES_DB: signal
+      POSTGRES_USER: signal
+      POSTGRES_PASSWORD: "${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD}"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: [CMD-SHELL, "pg_isready -U signal -d signal"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    restart: unless-stopped
+    shm_size: 128m
+    mem_limit: 768m
+    networks: [control]
+  mediamtx:
+    image: bluenviron/mediamtx:1.21.0
+    environment:
+      MTX_AUTHINTERNALUSERS_0_USER: control
+      MTX_AUTHINTERNALUSERS_0_PASS: "${MEDIAMTX_API_PASSWORD:?Set MEDIAMTX_API_PASSWORD}"
+      MTX_AUTHINTERNALUSERS_0_PERMISSIONS_0_ACTION: api
+      MTX_AUTHINTERNALUSERS_1_USER: obs
+      MTX_AUTHINTERNALUSERS_1_PASS: "${OBS_PASSWORD:?Set OBS_PASSWORD}"
+      MTX_AUTHINTERNALUSERS_1_PERMISSIONS_0_ACTION: publish
+      MTX_AUTHINTERNALUSERS_1_PERMISSIONS_0_PATH: live
+    ports:
+      - "${INGEST_BIND:-0.0.0.0}:1935:1935"
+    volumes:
+      - ./mediamtx/mediamtx.yml:/mediamtx.yml:ro
+    restart: unless-stopped
+    read_only: true
+    security_opt:
+      - no-new-privileges:true
+    cap_drop: [ALL]
+    mem_limit: 512m
+    networks: [control]
+volumes:
+  postgres_data:
+networks:
+  control:
+    driver: bridge

@@ -1,0 +1,11 @@
+.env
+node_modules/
+dist/
+.angular/
+target/
+.cache/
+*.log
+playwright-report/
+test-results/
+!.env.example
+__pycache__/

@@ -1,0 +1,4 @@
+# Run Caddy on the Ubuntu host. Replace this hostname and PUBLIC_ORIGIN.
+stream.example.com {
+    reverse_proxy 127.0.0.1:8088
+}
