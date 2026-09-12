@@ -1,5 +1,13 @@
 # Verification results
 
+## Production CSS correction — 12 September 2026
+
+The first server deployment exposed a CSP incompatibility that the development-server browser check did not cover. Angular's critical-CSS optimization emitted a stylesheet with `media="print"` and an inline `onload` handler. The Nginx `script-src 'self'` policy blocked that handler, leaving only the small inlined base styles active.
+
+Production builds now disable `optimization.styles.inlineCritical` while retaining minification and the existing CSP. `npm run build` also runs `scripts/verify-production.mjs`, which checks that screen styles load directly, require no inline event handler, and contain the dashboard layout rules.
+
+Update the frontend directory on the server and run `docker compose up -d --build --no-deps frontend`, then hard-refresh the browser. No database migration or backend restart is required for this correction.
+
 Verified on 9 September 2026 in the development workspace. Dependencies are locked by `frontend/package-lock.json` and `backend/Cargo.lock`.
 
 | Check | Result |

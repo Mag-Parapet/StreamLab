@@ -19,7 +19,7 @@ bash infrastructure/setup.sh --origin https://stream.domeniul-tau.ro
 **Pentru evaluare locală prin tunel SSH:**
 
 ```sh
-bash infrastructure/setup.sh --local
+bash infrrastructure/setup.sh --local
 ```
 
 Scriptul creează `.env` cu parole aleatoare distincte și cheia de criptare. Nu afișează parolele și refuză să suprascrie un fișier existent. Dacă ai deja `.env`, păstrează-l și verifică valorile folosind `.env.example` ca referință. Nu regenera `ENCRYPTION_KEY` peste o bază de date existentă.
