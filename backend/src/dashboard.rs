@@ -38,8 +38,16 @@ pub async fn websocket(
     headers: HeaderMap,
     ws: WebSocketUpgrade,
 ) -> ApiResult<Response> {
-    if headers.get("origin").and_then(|v| v.to_str().ok())
-        != Some(state.config.public_origin.as_str())
+    if !headers
+        .get("origin")
+        .and_then(|v| v.to_str().ok())
+        .is_some_and(|value| {
+            state
+                .config
+                .allowed_origins
+                .iter()
+                .any(|allowed| allowed == value)
+        })
     {
         return Err(ApiError(
             axum::http::StatusCode::FORBIDDEN,

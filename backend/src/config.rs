@@ -6,7 +6,7 @@ pub struct Config {
     pub encryption_key: [u8; 32],
     pub admin_user: String,
     pub admin_password: String,
-    pub public_origin: String,
+    pub allowed_origins: Vec<String>,
     pub secure_cookie: bool,
     pub mediamtx_api: String,
     pub mediamtx_user: String,
@@ -36,19 +36,14 @@ impl Config {
             bail!("ADMIN_PASSWORD must be at least 12 characters");
         }
         let public_origin = env("PUBLIC_ORIGIN", "http://localhost:8088");
-        let parsed = url::Url::parse(&public_origin)?;
-        if !["http", "https"].contains(&parsed.scheme())
-            || parsed.origin().ascii_serialization() != public_origin
-        {
-            bail!("PUBLIC_ORIGIN must be an HTTP(S) origin without trailing slash");
-        }
+        let allowed_origins = parse_origins(&public_origin, &env("ADDITIONAL_ORIGINS", ""))?;
         Ok(Self {
             database_url: std::env::var("DATABASE_URL").context("DATABASE_URL required")?,
             encryption_key,
             admin_user: env("ADMIN_USER", "admin"),
             admin_password,
             secure_cookie: env("COOKIE_SECURE", "true") == "true",
-            public_origin,
+            allowed_origins,
             mediamtx_api: env("MEDIAMTX_API_URL", "http://mediamtx:9997"),
             mediamtx_user: env("MEDIAMTX_API_USER", "control"),
             mediamtx_password: std::env::var("MEDIAMTX_API_PASSWORD")
@@ -60,5 +55,52 @@ impl Config {
             root_mount: env("HOST_ROOT", "/host/root"),
             data_mount: env("HOST_DATA", "/host/data"),
         })
+    }
+}
+
+fn parse_origins(primary: &str, additional: &str) -> anyhow::Result<Vec<String>> {
+    let mut origins = vec![primary.to_owned()];
+    origins.extend(
+        additional
+            .split(',')
+            .map(str::trim)
+            .filter(|s| !s.is_empty())
+            .map(str::to_owned),
+    );
+    for origin in &origins {
+        let parsed = url::Url::parse(origin)?;
+        if !["http", "https"].contains(&parsed.scheme())
+            || parsed.origin().ascii_serialization() != *origin
+        {
+            bail!("Origins must be HTTP(S) origins without paths or trailing slash");
+        }
+    }
+    origins.sort();
+    origins.dedup();
+    Ok(origins)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::parse_origins;
+
+    #[test]
+    fn explicit_origins_only() {
+        let origins =
+            parse_origins("http://192.168.1.4:8089", " http://100.76.32.61:8089, ").unwrap();
+        assert!(origins.contains(&"http://192.168.1.4:8089".into()));
+        assert!(origins.contains(&"http://100.76.32.61:8089".into()));
+        assert!(!origins.contains(&"http://100.76.32.61:8090".into()));
+        for invalid in [
+            "*",
+            "null",
+            "ftp://example.com",
+            "https://example.com/",
+            "https://user@example.com",
+            "https://example.com/path",
+        ] {
+            assert!(parse_origins("http://localhost:8088", invalid).is_err());
+        }
+        assert_eq!(parse_origins("http://localhost:8088", "").unwrap().len(), 1);
     }
 }

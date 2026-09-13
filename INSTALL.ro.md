@@ -63,3 +63,18 @@ docker compose start
 Datele aplicației sunt în volumul PostgreSQL. Păstrează un backup al bazei de date și al `ENCRYPTION_KEY`. Nu folosi `docker compose down -v` dacă vrei să păstrezi datele. La repornirea backendului, retransmisia este oprită intenționat și trebuie pornită din nou din Live.
 
 Pentru detalii: [README](README.md), [API](docs/API.md) și [verificările efectuate](docs/VERIFICATION.md). Testele locale cu PostgreSQL și retransmisie MediaMTX au trecut. Build-ul imaginilor Docker și verificările hardware pe Ubuntu rămân de efectuat pe serverul tău.
+
+### Acces simultan LAN și Tailscale
+
+Actualizați folderul backend și docker-compose.yml, apoi setați în .env:
+
+```dotenv
+DASHBOARD_BIND=0.0.0.0
+DASHBOARD_PORT=8089
+PUBLIC_ORIGIN=http://192.168.1.4:8089
+ADDITIONAL_ORIGINS=http://100.76.32.61:8089
+COOKIE_SECURE=false
+```
+
+Rulați `sudo docker compose up -d --build backend frontend`.
+Panoul acceptă autentificare și WebSocket la ambele adrese. Autentificarea este separată pentru fiecare adresă. Bind 0.0.0.0 ascultă pe toate interfețele IPv4; nu configurați redirecționarea portului 8089 către internet.

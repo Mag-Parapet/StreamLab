@@ -75,7 +75,13 @@ pub async fn csrf(
             ));
         }
         if let Some(origin) = request.headers().get(header::ORIGIN)
-            && origin.to_str().ok() != Some(state.config.public_origin.as_str())
+            && !origin.to_str().ok().is_some_and(|value| {
+                state
+                    .config
+                    .allowed_origins
+                    .iter()
+                    .any(|allowed| allowed == value)
+            })
         {
             return Err(ApiError(
                 StatusCode::FORBIDDEN,
